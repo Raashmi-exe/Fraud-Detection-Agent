@@ -19,6 +19,8 @@ services:
     build: ./ml-service
     ports:
       - "8000:8000"
+    environment:
+      FRAUD_THRESHOLD: ${FRAUD_THRESHOLD:-0.70}
   backend:
     build: ./backend
     ports:

@@ -60,5 +60,6 @@ public class MlClient {
     public record MlResult(
             boolean anomaly,
             double anomaly_score,
+            double threshold,
             String model) {}
 }

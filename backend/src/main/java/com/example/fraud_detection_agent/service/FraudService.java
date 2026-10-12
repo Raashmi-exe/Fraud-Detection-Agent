@@ -44,15 +44,32 @@ public class FraudService {
 
         int hour = request.transactionTime().getHour();
 
-        // Temporary placeholders because the current request
-        // does not provide PaySim balance information.
-        int unusualLocation = 0;
-        String transactionType = "TRANSFER";
+        // Use the transaction type supplied by the request.
+        String transactionType =
+                request.transactionType() == null
+                || request.transactionType().isBlank()
+                ? "TRANSFER"
+                : request.transactionType().toUpperCase(Locale.ROOT);
 
-        double oldBalanceOrg = 0.0;
-        double newBalanceOrig = 0.0;
-        double oldBalanceDest = 0.0;
-        double newBalanceDest = 0.0;
+        // Default omitted balance fields to zero.
+        double oldBalanceOrg =
+                request.oldBalanceOrg() == null
+                ? 0.0 : request.oldBalanceOrg().doubleValue();
+
+        double newBalanceOrig =
+                request.newBalanceOrig() == null
+                ? 0.0 : request.newBalanceOrig().doubleValue();
+
+        double oldBalanceDest =
+                request.oldBalanceDest() == null
+                ? 0.0 : request.oldBalanceDest().doubleValue();
+
+        double newBalanceDest =
+                request.newBalanceDest() == null
+                ? 0.0 : request.newBalanceDest().doubleValue();
+
+        // Location is not currently a trained model feature.
+        int unusualLocation = 0;
 
         MlResult prediction = mlClient.predict(
             request.amount().doubleValue(),
@@ -71,29 +88,37 @@ public class FraudService {
             );
         }
 
-        // The Random Forest returns an estimated fraud probability.
         double score = prediction.anomaly_score();
+        double threshold = prediction.threshold();
 
-        String status = prediction.anomaly()
+        String status = score >= threshold
                 ? "SUSPICIOUS"
                 : "SAFE";
 
-        // Corrected format specifiers and matching argument order.
         String report = String.format(
             Locale.ROOT,
-            "%s: The %s model returned a fraud probability estimate " +
-            "of %.4f for amount %.2f at %02d:00. " +
+            "%s: The %s model returned a score of %.4f. " +
+            "The configured decision threshold is %.2f. " +
+            "Amount: %.2f. Transaction time: %02d:00. " +
             "Transaction type: %s. " +
-            "PaySim balance features are currently placeholders, " +
-            "so this prediction is for integration testing only. " +
-            "A model prediction is not proof of fraud; review " +
-            "the transaction before taking action.",
+            "Balance inputs: origin %.2f -> %.2f, " +
+            "destination %.2f -> %.2f. " +
+            "The unusual-location feature is not currently used " +
+            "by the trained model. Scores are not calibrated " +
+            "real-world fraud probabilities. Review suspicious " +
+            "transactions before taking action; a model prediction " +
+            "is not proof of fraud.",
             status,
             prediction.model(),
             score,
+            threshold,
             request.amount().doubleValue(),
             hour,
-            transactionType
+            transactionType,
+            oldBalanceOrg,
+            newBalanceOrig,
+            oldBalanceDest,
+            newBalanceDest
         );
 
         tx.setFraudScore(score);
