@@ -1,14 +1,23 @@
 # Fraud Detection Agent
 
-A full-stack fraud detection system that combines machine learning with a web dashboard to analyse financial transactions, estimate fraud risk, and store transaction investigation reports.
+A full-stack fraud detection demonstration that combines machine learning with a web dashboard to analyze financial transactions, estimate fraud risk, and store transaction investigation reports.
+
+> **Disclaimer:** This project is intended for educational and demonstration purposes. Predictions are not proof of fraud and must not be used for real financial decisions without independent validation and appropriate security and operational controls.
 
 ## Overview
 
-The Fraud Detection Agent integrates a React frontend, a Spring Boot backend, a Python FastAPI machine learning service, and a MySQL database. Docker Compose runs the services together.
+The Fraud Detection Agent combines four main components:
 
-The project uses the PaySim simulated mobile-money transaction dataset to train a Random Forest classifier.
+- **React + Vite:** Transaction entry, dashboard summaries, search, filtering, history, and reports.
+- **Spring Boot:** REST APIs, transaction processing, ML-service integration, and database persistence.
+- **Python + FastAPI:** Serves the trained machine learning model.
+- **MySQL 8.4:** Stores transaction details, scores, statuses, and reports.
 
-**Note:** This is a learning and demonstration project. Its predictions are not proof of fraud and should not be used to make real financial decisions without further validation.
+Docker Compose runs the database, ML service, and backend together. The React development server runs separately.
+
+The project uses the PaySim simulated mobile-money transaction dataset to train a Random Forest classifier. The model produces a score that is compared against a configurable threshold to classify transactions as `SAFE` or `SUSPICIOUS`.
+
+These labels represent model output, not verified findings about real transactions.
 
 ## Architecture
 
@@ -17,30 +26,24 @@ React Dashboard (5173)
         |
         v
 Spring Boot Backend (8081)
-        |
-        +----------> FastAPI ML Service (8000)
+        | \
+        |  \----> FastAPI ML Service (8000)
         |
         v
-     MySQL (3307)
+MySQL Database (host port 3307)
 ```
-
-- **React:** Transaction entry, summary cards, history, search, filters, and reports.
-- **Spring Boot:** REST API, transaction processing, and persistence.
-- **FastAPI:** Serves the trained machine learning model.
-- **Random Forest:** Estimates fraud probability from transaction features.
-- **MySQL:** Stores transaction details, scores, statuses, and reports.
-- **Docker Compose:** Runs the backend, ML service, and database.
-- **Jenkins:** Intended for CI/CD integration.
 
 ## Features
 
-- Submit transactions from the dashboard.
-- Analyse transactions through the ML service.
-- Store transaction results in MySQL.
+- Submit transactions through the web dashboard.
+- Analyze transactions using the ML service.
+- Classify model scores using a configurable fraud threshold.
+- Store transactions, scores, statuses, and reports in MySQL.
 - View transaction history and summary statistics.
 - Search transactions and filter by status.
-- Inspect transaction details and model-generated reports.
-- Run the application using Docker Compose.
+- Inspect transaction details and reports.
+- Run the backend, ML service, and database through Docker Compose.
+- Explore the ML API through FastAPI's interactive documentation.
 
 ## Technology Stack
 
@@ -48,18 +51,18 @@ Spring Boot Backend (8081)
 |---|---|
 | Frontend | React, Vite, JavaScript, CSS |
 | Backend | Java, Spring Boot, Maven |
-| Machine Learning API | Python, FastAPI |
-| ML Model | scikit-learn, Random Forest |
-| Data Processing | pandas, NumPy |
+| ML API | Python, FastAPI, Uvicorn |
+| ML model | scikit-learn, Random Forest |
+| Data processing | pandas, NumPy |
+| Model persistence | joblib |
 | Database | MySQL 8.4 |
-| Model Persistence | joblib |
 | Containers | Docker, Docker Compose |
-| CI/CD | Jenkins |
+| CI/CD | Jenkins (planned unless a working pipeline is configured) |
 
 ## Project Structure
 
 ```text
-fraud-detection-agent/
+Fraud-Detection-Agent/
 ├── backend/
 │   ├── src/
 │   ├── pom.xml
@@ -72,25 +75,27 @@ fraud-detection-agent/
 │   ├── app.py
 │   ├── train.py
 │   ├── requirements.txt
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── fraud_model.joblib
 ├── docker-compose.yml
+├── .env
 ├── .gitignore
 └── README.md
 ```
 
-The PaySim dataset and generated model artifact are excluded from Git because of their size. Follow the model setup instructions before building the ML container.
+The `.env` file, PaySim CSV, generated model artifact, local virtual environments, and build outputs should not be committed to Git. The model artifact is generated locally and must exist before building the ML container.
 
 ## Prerequisites
 
-Install the following:
+Install:
 
-- Git
-- Docker Desktop with Docker Compose
-- Node.js and npm, for local frontend development
-- Python 3.11 or a compatible environment, for model training
-- Access to the PaySim dataset
+- [Git](https://git-scm.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) with Docker Compose
+- [Node.js](https://nodejs.org/) and npm
+- Python 3.11 and pip if training the model locally
+- The PaySim dataset if retraining the model
 
-## Setup
+## Setup and Installation
 
 ### 1. Clone the repository
 
@@ -98,6 +103,8 @@ Install the following:
 git clone https://github.com/Raashmi-exe/Fraud-Detection-Agent.git
 cd Fraud-Detection-Agent
 ```
+
+Run the following commands from the project root unless specified otherwise.
 
 ### 2. Configure environment variables
 
@@ -107,57 +114,82 @@ Create a `.env` file in the project root:
 MYSQL_ROOT_PASSWORD=your_local_database_password
 ```
 
-Use a secure local password. Do not commit `.env` or place credentials directly in source files.
+Replace the example value with your own local password. Do not commit this file or share its contents.
 
-Ensure the backend database configuration and MySQL healthcheck use the configured password.
+Docker Compose uses the configured password for MySQL and the backend database connection.
 
 ### 3. Prepare the machine learning model
 
-Download the PaySim dataset from its original source:
+The ML Dockerfile expects the generated artifact:
+
+```text
+ml-service/fraud_model.joblib
+```
+
+The artifact is excluded from Git, so generate it locally if it is not already available.
+
+Download the PaySim dataset:
 
 https://www.kaggle.com/datasets/ealaxi/paysim1
 
-Extract the CSV expected by `train.py` into `ml-service/`. Install the Python dependencies and train the model.
+Place the extracted CSV where `ml-service/train.py` expects it. Check the input filename in the script and ensure it matches the downloaded dataset.
+
+**Windows PowerShell**
+
+```powershell
+cd ml-service
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python train.py
+cd ..
+```
+
+**macOS/Linux**
 
 ```bash
 cd ml-service
-python -m venv .venv
-```
-
-Activate the virtual environment and install dependencies:
-
-```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 python train.py
+cd ..
 ```
 
-Training should generate `fraud_model.joblib`. Return to the project root before running Docker Compose.
+Verify that `ml-service/fraud_model.joblib` exists before building the Docker image.
 
-**Important:** The exact dataset filename and model output must match the paths used by `train.py` and the ML Dockerfile.
+If you already have a compatible local model artifact, you do not need to retrain it just to run the demonstration.
 
-### 4. Start the services
+### 4. Build and start backend services
 
-From the project root:
+Ensure Docker Desktop is running. From the project root:
 
 ```bash
-docker compose build
-docker compose up -d
+docker compose up --build -d
 docker compose ps
 ```
 
-Wait for MySQL to become healthy and confirm that the backend and ML service are running.
+Wait for MySQL to become healthy and for the backend and ML service to finish starting.
 
-### 5. Open the application
+View service logs:
 
-| Service | URL |
-|---|---|
-| React dashboard | http://localhost:5173 |
-| Spring Boot API | http://localhost:8081 |
-| FastAPI documentation | http://localhost:8000/docs |
-| FastAPI health check | http://localhost:8000/health |
-| MySQL host port | `3307` |
+```bash
+docker compose logs -f mysql ml-service backend
+```
 
-The React development server may need to be started separately:
+Press `Ctrl+C` to stop following the logs. This does not stop the containers.
+
+For troubleshooting:
+
+```bash
+docker compose logs backend
+docker compose logs ml-service
+docker compose logs mysql
+```
+
+### 5. Start the React dashboard
+
+Open a second terminal in the project root:
 
 ```bash
 cd frontend
@@ -165,13 +197,45 @@ npm install
 npm run dev
 ```
 
+Open the local URL printed by Vite. It is typically:
+
+http://localhost:5173
+
+### 6. Verify the services
+
+| Service | URL or connection |
+|---|---|
+| React dashboard | http://localhost:5173 |
+| Spring Boot transaction API | http://localhost:8081/api/transactions |
+| FastAPI documentation | http://localhost:8000/docs |
+| FastAPI health check | http://localhost:8000/health |
+| MySQL | `127.0.0.1:3307` |
+
+The transaction API should return saved transactions, usually as JSON. The FastAPI health endpoint should return the service status and configured threshold.
+
+For MySQL Workbench, use the `fraud_detection` schema and the credentials configured locally.
+
+## Demo Walkthrough
+
+1. Start Docker Desktop.
+2. Run `docker compose up --build -d` from the project root.
+3. Check service status using `docker compose ps`.
+4. Start the React dashboard using `npm run dev` from the `frontend` directory.
+5. Open the dashboard in your browser.
+6. Submit an ordinary-looking synthetic transaction.
+7. Submit a second transaction with an unusual combination of amount, transaction type, and account balances.
+8. Compare the scores, statuses, and reports.
+9. Verify that both transactions appear in the dashboard history and MySQL.
+
+Use synthetic examples only. A previously tested large transfer with the origin balance dropping to zero received a high score with the existing local model, but the outcome depends on the exact input and model artifact.
+
 ## API Endpoints
 
-### Process a transaction
+### Create and analyze a transaction
 
-`POST /api/transactions`
+**Endpoint:** `POST /api/transactions`
 
-Example request using the currently supported fields:
+Minimal example:
 
 ```json
 {
@@ -183,50 +247,100 @@ Example request using the currently supported fields:
 }
 ```
 
-The response includes the transaction ID, transaction details, fraud score, status, and report.
+The backend also supports optional transaction-model inputs:
+
+```json
+{
+  "userId": "USER_TEST_102",
+  "amount": 500000,
+  "merchant": "Demo Transfer",
+  "location": "Hyderabad",
+  "transactionTime": "2026-10-12T02:30:00",
+  "transactionType": "TRANSFER",
+  "oldBalanceOrg": 500000,
+  "newBalanceOrig": 0,
+  "oldBalanceDest": 0,
+  "newBalanceDest": 0
+}
+```
+
+The response includes transaction details and the analysis result, including the score, status, and report. The backend response DTO defines the exact response fields.
 
 ### Retrieve transaction history
 
-`GET /api/transactions`
+**Endpoint:** `GET /api/transactions`
 
-Returns the stored transactions.
+Returns the transactions stored by the backend.
 
 ### Check ML service health
 
-`GET /health`
+**Endpoint:** `GET /health`
+
+Returns the ML service health information and configured threshold.
 
 ### Request an ML prediction
 
-`POST /predict`
+**Endpoint:** `POST /predict`
 
-The FastAPI endpoint accepts the transaction features defined in `ml-service/app.py`. See http://localhost:8000/docs for the interactive API schema.
+The FastAPI service accepts the fields defined in `ml-service/app.py`.
 
-## Current Model Limitations
+Interactive documentation: http://localhost:8000/docs
 
-- PaySim contains simulated transactions rather than actual bank transactions.
-- Training and evaluation must account for the highly imbalanced fraud class.
-- The current backend supplies placeholder account balance features and a hardcoded transaction type.
-- A predicted fraud score is not necessarily a calibrated real-world probability.
-- Risk thresholds must be evaluated against representative validation data.
-- The current model and dashboard are intended for demonstration, not production fraud prevention.
+## Model and Threshold
+
+The current Random Forest model uses transaction type, transaction amount, and origin/destination balance features.
+
+The ML service returns an anomaly score and compares it against `FRAUD_THRESHOLD`, which defaults to `0.70` in the current configuration.
+
+The threshold is a decision cutoff, not proof that a transaction is fraudulent. Lowering it generally increases the number of alerts and may catch more fraud cases, while raising it generally reduces alerts but can miss more cases.
+
+A suitable threshold must be selected using representative validation data and an explicit consideration of the costs of missed fraud and unnecessary investigations.
+
+## Current Limitations
+
+- PaySim contains simulated transactions and may not represent real-world banking behavior.
+- Fraud is a highly imbalanced class, so accuracy alone is not sufficient to evaluate performance.
+- Previous evaluation results were exploratory. The sampled evaluation data overlapped with the source dataset used during training, so the results are not an independent estimate of generalization performance.
+- The model score is not a calibrated real-world fraud probability.
+- `hour` and `unusual_location` are accepted by the ML API but are not features used by the current trained model.
+- The dashboard may not expose every model input in its transaction form. The API example above shows how to provide transaction type and balance fields explicitly.
+- The current threshold is provisional and requires evaluation on separate, representative data.
+- The application is a demonstration system, not a production fraud-prevention platform.
 
 ## Planned Improvements
 
-- Accept transaction type and account balance inputs from the dashboard.
-- Validate and forward transaction features consistently across React, Spring Boot, and FastAPI.
-- Evaluate precision, recall, false-positive rate, and precision-recall performance.
-- Select risk thresholds using validation data and explicit decision costs.
-- Introduce a review category for uncertain predictions.
-- Improve report explanations and automated tests.
-- Extend the CI/CD pipeline using Jenkins.
+- Add transaction type and account balance fields to the dashboard if they are not yet available in the form.
+- Evaluate the model on a separate, leakage-free test dataset.
+- Report precision, recall, false-positive rate, and precision-recall performance.
+- Select a threshold using validation data and explicit decision costs.
+- Consider a review category for uncertain predictions.
+- Add automated backend, API, and end-to-end tests.
+- Complete and demonstrate a Jenkins CI/CD pipeline if required for the project.
+
+## Jenkins and CI/CD
+
+Jenkins is part of the intended CI/CD technology stack. Unless a Jenkinsfile and working pipeline have been configured and tested, Jenkins integration should be considered planned rather than implemented.
 
 ## Security Notes
 
 - Keep passwords and secrets in environment variables or a local `.env` file.
-- Never commit credentials, virtual environments, generated build files, or large datasets unintentionally.
-- Do not expose the database publicly.
+- Never commit credentials, private keys, generated build files, virtual environments, or large datasets.
+- Do not expose the database or development APIs to untrusted networks.
+- Avoid entering real personal or financial information during demonstrations.
 - Treat suspicious predictions as alerts requiring investigation, not definitive findings.
+
+## Stopping the Application
+
+Stop the React development server with `Ctrl+C` in its terminal.
+
+From the project root, stop the Docker services while preserving the database volume:
+
+```bash
+docker compose down
+```
+
+**Do not use `docker compose down -v` unless you intentionally want to delete the Compose-managed volumes, which may include saved database data.**
 
 ## Disclaimer
 
-This project is developed for educational and demonstration purposes. It does not provide a guarantee of fraud detection accuracy and is not intended to replace professional financial risk controls.
+This project is developed for educational and demonstration purposes only. It does not guarantee fraud detection accuracy and is not intended to replace professional financial risk controls, human investigation, or production security measures.
