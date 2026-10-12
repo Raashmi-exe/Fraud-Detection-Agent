@@ -13,3 +13,5 @@ ml-service/fraud_model.joblib
 backend/target/
 frontend/node_modules/
 frontend/dist/
+# Nested Maven project (not part of the main application)
+/fraud-detection-agent/
